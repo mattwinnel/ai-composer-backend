@@ -76,8 +76,8 @@ def generate():
             "ffmpeg", "-y", "-i", wav_path, mp3_path
         ], check=True)
     
-        # Optional: remove the WAV file to save space
-        # os.remove(wav_path)
+        # Remove the WAV file to save space
+        os.remove(wav_path)
     
     except subprocess.CalledProcessError:
         return jsonify({"error": "MIDI to MP3 conversion failed"}), 500
