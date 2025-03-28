@@ -14,6 +14,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the application code into the container
 COPY . .
 
+# Check if LilyPond and FluidSynth are installed (optional)
+RUN lilypond --version
+RUN fluidsynth --version
+
 # Expose the port your app will run on (default Flask port is 5000)
 EXPOSE 5000
 
