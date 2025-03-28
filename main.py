@@ -1,9 +1,23 @@
 # backend/main.py
-
 from flask import Flask, request, send_file, jsonify
 import os
 import uuid
 import subprocess
+import urllib.request
+
+# 🔽 Download soundfont if it's missing
+SOUNDFONT_FILE = "FluidR3_GM.sf2"
+SOUNDFONT_URL = "https://drive.google.com/uc?export=download&id=1mxi3Sa2t2hUqQ50hBw1BKGffPzSlIplD"
+
+if not os.path.exists(SOUNDFONT_FILE):
+    print("🎵 Downloading FluidR3_GM.sf2...")
+    try:
+        urllib.request.urlretrieve(SOUNDFONT_URL, SOUNDFONT_FILE)
+        print("✅ SoundFont downloaded successfully.")
+    except Exception as e:
+        print(f"❌ Failed to download SoundFont: {e}")
+
+
 
 app = Flask(__name__)
 
@@ -91,5 +105,7 @@ def download(filename):
     return jsonify({"error": "File missing or invalid"}), 500
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5050, debug=True)
+    # app.run(host="0.0.0.0", port=5050, debug=True) # for local Mac backend hosting
+    port = int(os.environ.get("PORT", 10000)) # for Render
+    app.run(host="0.0.0.0", port=port)
 
