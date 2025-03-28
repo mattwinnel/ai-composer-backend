@@ -4,15 +4,12 @@ FROM python:3.11-slim
 # Set the working directory inside the container
 WORKDIR /app
 
-# Install system dependencies (e.g., lilypond, fluidsynth)
-RUN apt-get update && apt-get install -y lilypond fluidsynth
+# Install system dependencies (including ffmpeg)
+RUN apt-get update && apt-get install -y lilypond fluidsynth ffmpeg
 
 # Install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-
-# Install system dependencies (including ffmpeg)
-RUN apt-get update && apt-get install -y lilypond fluidsynth ffmpeg
 
 # Copy the application code into the container
 COPY . .
