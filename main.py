@@ -51,11 +51,24 @@ def generate():
     with open(ly_path, "w") as f:
         f.write(lilypond_code)
 
-    # Compile with LilyPond
-    try:
-        subprocess.run(["lilypond", "-o", os.path.join(OUTPUT_DIR, uid), ly_path], check=True)
-    except subprocess.CalledProcessError:
-        return jsonify({"error": "LilyPond compilation failed"}), 500
+    # Compile with LilyPond (allow errors, but check output file)
+    result = subprocess.run(
+        ["lilypond", "-dignore-errors", "-o", os.path.join(OUTPUT_DIR, uid), ly_path],
+        capture_output=True,
+        text=True
+    )
+    
+    # Optional: print or log any stderr
+    print("🔧 LilyPond stderr:")
+    print(result.stderr)
+    
+    # Check if PDF was actually created
+    if not os.path.exists(pdf_path) or os.path.getsize(pdf_path) < MIN_FILE_SIZE:
+        return jsonify({
+            "error": "LilyPond compilation failed",
+            "log": result.stderr
+        }), 500
+
 
     # Check MIDI file exists
     if not os.path.exists(midi_path) or os.path.getsize(midi_path) < MIN_FILE_SIZE:
