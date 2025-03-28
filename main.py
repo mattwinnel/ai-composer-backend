@@ -7,14 +7,16 @@ import subprocess
 
 app = Flask(__name__)
 
-# Configuration
-OUTPUT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "output"))
-SOUNDFONT_PATH = "FluidR3_GM.sf2" # Make sure this file exists
-MIN_FILE_SIZE = 10  # Minimum bytes to consider file valid
+# ✅ Configuration
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+OUTPUT_DIR = os.path.join(BASE_DIR, "output")
+SOUNDFONT_PATH = os.path.join(BASE_DIR, "FluidR3_GM.sf2")  # full path to soundfont
+MIN_FILE_SIZE = 10  # bytes
 
-# Ensure output directory exists
+# ✅ Ensure output/ exists
 if not os.path.exists(OUTPUT_DIR):
     os.makedirs(OUTPUT_DIR)
+
 
 @app.route("/generate", methods=["POST"])
 def generate():
