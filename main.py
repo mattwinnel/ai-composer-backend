@@ -15,6 +15,7 @@ import random
 
 from openai_utils import log_openai_request
 
+import threading  # 👈 for async job handling
 
    
 
@@ -43,8 +44,11 @@ MIN_FILE_SIZE = 10  # bytes
 # ✅ Ensure output/ exists
 if not os.path.exists(OUTPUT_DIR):
     os.makedirs(OUTPUT_DIR)
+    
+    
 
-
+# ✅ In-memory job store
+jobs = {}
 
 @app.route("/generate", methods=["POST"])
 def generate():
@@ -112,6 +116,80 @@ def generate():
         "pdf_url": f"/download/{filename}.pdf",
         "mp3_url": f"/download/{filename}.mp3"
     })
+
+
+def process_job(job_id):
+    job = jobs[job_id]
+    try:
+        filename = job["filename"]
+        lilypond_code = job["lilypond"]
+
+        ly_path = os.path.join(OUTPUT_DIR, f"{filename}.ly")
+        pdf_path = os.path.join(OUTPUT_DIR, f"{filename}.pdf")
+        midi_path = os.path.join(OUTPUT_DIR, f"{filename}.midi")
+        mp3_path = os.path.join(OUTPUT_DIR, f"{filename}.mp3")
+        wav_path = os.path.join(OUTPUT_DIR, f"{filename}.wav")
+
+        with open(ly_path, "w") as f:
+            f.write(lilypond_code)
+
+        subprocess.run(
+            ["lilypond", "-dignore-errors", "-o", os.path.join(OUTPUT_DIR, filename), ly_path],
+            check=True
+        )
+
+        subprocess.run([
+            "fluidsynth", "-ni", SOUNDFONT_PATH, midi_path,
+            "-F", wav_path, "-r", "44100"
+        ], check=True)
+
+        subprocess.run(["ffmpeg", "-y", "-i", wav_path, mp3_path], check=True)
+
+        if os.path.exists(wav_path):
+            os.remove(wav_path)
+
+        job.update({
+            "status": "completed",
+            "pdf_url": f"/download/{filename}.pdf",
+            "mp3_url": f"/download/{filename}.mp3"
+        })
+
+    except Exception as e:
+        job["status"] = "failed"
+        job["error"] = str(e)
+
+@app.route("/job-status/<job_id>")
+def job_status(job_id):
+    job = jobs.get(job_id)
+    if not job:
+        return jsonify({"error": "Job not found"}), 404
+    return jsonify(job)
+
+
+@app.route("/start-generate", methods=["POST"])
+def start_generate():
+    data = request.get_json()
+    lilypond_code = data.get("lilypond")
+    requested_filename = data.get("filename") or str(uuid.uuid4())
+
+    if not lilypond_code:
+        return jsonify({"error": "Missing LilyPond code"}), 400
+
+    filename = "".join(c for c in requested_filename if c.isalnum() or c in ("_", "-")).rstrip()
+    job_id = str(uuid.uuid4())
+
+    jobs[job_id] = {
+        "status": "pending",
+        "filename": filename,
+        "lilypond": lilypond_code,
+        "pdf_url": None,
+        "mp3_url": None,
+        "error": None
+    }
+
+    threading.Thread(target=process_job, args=(job_id,)).start()
+
+    return jsonify({"job_id": job_id})
 
 
 @app.route("/download/<filename>")
