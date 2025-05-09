@@ -278,11 +278,60 @@ def run_smart_generation(user_prompt, model, balance):
     conversation = [
         {
             "role": "system",
-            "content": (
+            "content":
                 "You are an expert composer.\n\n"
-                "When the user requests a musical composition, you must first carefully plan..."
-                # ... TRUNCATE for brevity – use your full system prompt here ...
-                f"\n\n```lilypond\n{example_lilypond}\n```"
+                "When the user requests a musical composition, you must first carefully plan (don't be so generic, not always C major and 6/8 time):\n\n"
+                "- Style\n"
+                "- Form\n"
+                "- Key (or 'atonal')\n"
+                "- Modulation (if any)\n"
+                "- Time Signature\n"
+                "- Mood\n"
+                "- Upbeat (or not)\n"
+                "- Texture\n\n"
+                "✅ Write the planning clearly inside a ```json``` block, but convert all values (including booleans, numbers, and enums) to strings. For example: \\\"Upbeat\\\": \\\"true\\\" or \\\"Upbeat\\\": \\\"false\\\"."
+                "⚠️ You must escape all backslashes correctly in JSON (e.g., use \"A\\\\B\\\\A'\" instead of \"A\\B\\A'\"). Only return valid JSON.\n\n"
+                "All values inside the ```json``` block must be plain strings — not LilyPond syntax."
+                "✅ Then generate the LilyPond (.ly) code inside a ```lilypond``` block.\n\n"
+                "LilyPond Code Rules:\n"
+                "only include a composer if specified (otherwise DO NOT include a composer)"
+                "- Use exact pitches (no \\relative).\n"
+                "- Include \\version, \\header, \\layout, and \\midi blocks.\n"
+                "- Include \\score { ... } surrounding the music.\n"
+                "- Use valid LilyPond pitch names (e.g., bes not Bb).\n\n"
+                "- Include a tempo indication (such as a descriptive word or a numerical marking) using \\\\tempo near the beginning of the score. Choose a value that matches the character and pacing of the piece.\n"
+                "- Use dynamics (e.g., \\\\p, \\\\f, \\\\mf) and expressive markings (e.g., phrasing hairpins, text expressions with \\\\markup) that support the musical shape and intention.\n"
+                "- Add phrasing slurs and articulations (e.g., staccato, accents) to clarify musical expression and performance details."
+                "⚡️ Before completing your output, double-check:\n"
+                "- You included \\score { ... }\n"
+                "- You included \\layout { }\n"
+                "- You included \\midi { }\n\n"
+                "If lyrics are needed, define a variable like \\verseLyrics (do not use \\lyrics), then connect it using \\new Lyrics \\lyricsto \"voiceName\" \\verseLyrics. Always define the melody as a separate variable (e.g., melody = { ... }) before using it inside \\new Voice = \"voiceName\" { \\melody }, so lyrics can attach correctly."
+                "Base the harmonic structure on the following (use it as a close guide!!):\n\n"
+                "```lilypond\n" + example_lilypond + "\n```" + "\n\n"
+                "NEVER output explanations, comments, or markdown outside code blocks.\n"
+                "Only output pure JSON and LilyPond inside code blocks.\n\n"
+                "Following the original plan, add a melody over the harmony using chord tones as a base."
+                "Do not change the style, form, or key unless the plan specifies it. "
+                "Make the melody interesting and distinct compared to other voices. Think: movement, contrast, rests, quavers, ties, suspensions, syncopation, unity. "
+                "Ensure rhythmic interest. Avoid voice doubling. Use exact pitch and valid LilyPond syntax."
+                "Add syncopation, triplets, arpeggios, scalic runs, suspensions, and phrasing rests. "
+                "Introduce pedal tones where appropriate. Ensure all voices contribute to the texture and maintain proper voice-leading."
+                "Ensure:\n"
+                "- rhythmic contrast and interest throughout\n"
+                "- expressive melodic phrasing\n"
+                "- inner voices with variation (triplets, pedal tones, arpeggiation)\n"
+                "- motivic unity\n"
+                "- use of phrasing rests\n"
+                "Finalize the composition. Confirm it matches the original plan. Make the music coherent, expressive, and formally satisfying. "
+                "Double-check that the LilyPond code includes \\version, \\header, \\layout, \\midi, and \\score { ... } and compiles correctly."
+                "Fix the score: ensure all measures add up to the correct duration, synchronize all parts bar-by-bar, and align voices so they finish together."
+                "Always follow the formatting style used in the example score above. "
+                "Each LilyPond command (e.g., \\\\version, \\\\header, variable = { ... }, \\\\score { ... }) must start on its own line. "
+                "Never place multiple commands on the same line. "
+                "Match the indentation and spacing style exactly."
+                "Use the example score as a strict formatting template. Do not deviate from its structure or layout style."
+                "Do not include any comments (e.g., lines starting with %). Absolutely no `%` symbols should appear in the output LilyPond code. All output must be pure code only, with no comments."
             )
         },
         {"role": "user", "content": user_prompt}
@@ -309,7 +358,53 @@ def run_smart_generation(user_prompt, model, balance):
         if i == 1:
             messages = conversation
         else:
-            messages = [ ... ]  # you can add future iterations here
+                if i == 2:
+                    refine_prompt = (
+                        "Following the original plan, add a melody over the harmony using chord tones as a base."
+                        "Do not change the style, form, or key unless the plan specifies it. "
+                        "Make the melody interesting and distinct compared to other voices. Think: movement, contrast, rests, quavers, ties, suspensions, syncopation, unity. "
+                        "Ensure rhythmic interest. Avoid voice doubling. Use exact pitch and valid LilyPond syntax."
+                    )
+                elif i == 3:
+                    refine_prompt = (
+                        "Following the plan, enhance the inner and lower voices for greater musical and rhythmic interest. "
+                        "Add syncopation, triplets, arpeggios, scalic runs, suspensions, and phrasing rests. "
+                        "Introduce pedal tones where appropriate. Ensure all voices contribute to the texture and maintain proper voice-leading."
+                    )
+                elif i == 4:
+                    refine_prompt = (
+                        "Continue following the original plan. Refine the composition for musical expressiveness, rhythmic vitality, and structural clarity. "
+                        "Ensure:\n"
+                        "- rhythmic contrast and interest throughout\n"
+                        "- expressive melodic phrasing\n"
+                        "- inner voices with variation (triplets, pedal tones, arpeggiation)\n"
+                        "- motivic unity\n"
+                        "- use of phrasing rests\n"
+                        "Ensure the LilyPond code compiles, uses exact pitch, and follows formatting rules."
+                    )
+                elif i == 5:
+                    refine_prompt = (
+                        "Finalize the composition. Confirm it matches the original plan. Make the music coherent, expressive, and formally satisfying. "
+                        "Double-check that the LilyPond code includes \\version, \\header, \\layout, \\midi, and \\score { ... } and compiles correctly."
+                        "Fix the score: ensure all measures add up to the correct duration, synchronize all parts bar-by-bar, and align voices so they finish together."
+                    )
+
+                messages = [
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are an expert LilyPond composer and editor. When refining a composition, follow the user's original plan exactly. "
+                            "Use German note names (e.g., fis, bes), exact pitch (no \\relative), and avoid parallel 5ths/8ves. "
+                            "Ensure rhythmic and melodic variety, structural balance, and musical interest in all voices. "
+                            "Wrap the music in a valid \\score block with \\layout and \\midi. "
+                            "Output valid LilyPond code only — no explanations or extra comments."
+                        )
+                    },
+                    {"role": "user", "content": f"The user's original musical prompt:\n\n{user_prompt}"},
+                    {"role": "user", "content": f"Here is the plan we made before composing:\n\n{json_lib.dumps(planning, indent=2)}"},
+                    {"role": "user", "content": f"Here is the current LilyPond score:\n\n{lilypond_code}"},
+                    {"role": "user", "content": refine_prompt}
+                ]
 
         all_messages.append({"iteration": i, "messages": messages})
 
