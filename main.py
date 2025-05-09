@@ -35,11 +35,41 @@ if not os.path.exists(SOUNDFONT_FILE):
 
 app = Flask(__name__)
 
+# ✅ In-memory job store
+jobs = {}
+
+
+
+
 # ✅ Configuration
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_DIR = os.path.join(BASE_DIR, "output")
 SOUNDFONT_PATH = os.path.join(BASE_DIR, "FluidR3_GM.sf2")
 MIN_FILE_SIZE = 10  # bytes
+
+
+
+JOBS_FILE = os.path.join(BASE_DIR, "jobs.json")
+
+def save_jobs_to_file():
+    try:
+        with open(JOBS_FILE, "w") as f:
+            json_lib.dump(jobs, f)
+    except Exception as e:
+        print(f"❌ Failed to save jobs: {e}")
+
+def load_jobs_from_file():
+    global jobs
+    try:
+        if os.path.exists(JOBS_FILE):
+            with open(JOBS_FILE, "r") as f:
+                jobs = json_lib.load(f)
+                print(f"🔄 Loaded {len(jobs)} jobs from disk")
+    except Exception as e:
+        print(f"❌ Failed to load jobs: {e}")
+
+load_jobs_from_file()
+
 
 # ✅ Ensure output/ exists
 if not os.path.exists(OUTPUT_DIR):
@@ -47,8 +77,7 @@ if not os.path.exists(OUTPUT_DIR):
     
     
 
-# ✅ In-memory job store
-jobs = {}
+
 
 @app.route("/generate", methods=["POST"])
 def generate():
@@ -153,10 +182,14 @@ def process_job(job_id):
             "pdf_url": f"/download/{filename}.pdf",
             "mp3_url": f"/download/{filename}.mp3"
         })
+        
+        save_jobs_to_file()
 
     except Exception as e:
         job["status"] = "failed"
         job["error"] = str(e)
+        
+        save_jobs_to_file()
 
 @app.route("/job-status/<job_id>")
 def job_status(job_id):
@@ -481,9 +514,15 @@ def start_smart_generate():
             result = run_smart_generation(user_prompt, model, balance)
             jobs[job_id]["status"] = "completed"
             jobs[job_id]["result"] = result
+            
+            save_jobs_to_file()
+            
+            
         except Exception as e:
             jobs[job_id]["status"] = "failed"
             jobs[job_id]["error"] = str(e)
+            
+            save_jobs_to_file()
 
     threading.Thread(target=job_runner).start()
     return jsonify({"job_id": job_id})
@@ -573,6 +612,14 @@ def refine_lilypond():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/clear-jobs", methods=["POST"])
+def clear_jobs():
+    global jobs
+    jobs = {}
+    save_jobs_to_file()
+    return jsonify({"message": "All jobs cleared"}), 200
+    
+    
 if __name__ == "__main__":
     # app.run(host="0.0.0.0", port=5050, debug=True) # for local Mac backend hosting
     port = int(os.environ.get("PORT", 10000)) # for Render
