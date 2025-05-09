@@ -254,26 +254,22 @@ def generate_lilypond():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/smart-generate-lilypond", methods=["POST"])
-def smart_generate_lilypond():
-    data = request.get_json()
-    user_prompt = data.get("prompt")
-    model = data.get("model", "gpt-4.1")
-    balance = data.get("balance", 0.0)
+def run_smart_generation(user_prompt, model, balance):
+    import re
+    import json as json_lib
+    import glob
+    import random
+    from openai_utils import log_openai_request
 
     if balance < 0.99:
-        return jsonify({"error": "Insufficient funds"}), 403
+        raise ValueError("Insufficient funds")
 
     NUM_ITERATIONS = 1
 
-    if not user_prompt:
-        return jsonify({"error": "Missing prompt"}), 400
-
-    # 🔁 Load a new random example LilyPond file on each request
     EXAMPLE_SCORES_DIR = os.path.join(BASE_DIR, "example_scores")
     example_files = glob.glob(os.path.join(EXAMPLE_SCORES_DIR, "example_score_*.ly"))
     if not example_files:
-        return jsonify({"error": "No example_score_*.ly files found"}), 500
+        raise RuntimeError("No example_score_*.ly files found")
 
     random_example_path = random.choice(example_files)
     with open(random_example_path, "r", encoding="utf-8") as f:
@@ -282,68 +278,15 @@ def smart_generate_lilypond():
     conversation = [
         {
             "role": "system",
-            "content":
+            "content": (
                 "You are an expert composer.\n\n"
-                "When the user requests a musical composition, you must first carefully plan (don't be so generic, not always C major and 6/8 time):\n\n"
-                "- Style\n"
-                "- Form\n"
-                "- Key (or 'atonal')\n"
-                "- Modulation (if any)\n"
-                "- Time Signature\n"
-                "- Mood\n"
-                "- Upbeat (or not)\n"
-                "- Texture\n\n"
-                "✅ Write the planning clearly inside a ```json``` block, but convert all values (including booleans, numbers, and enums) to strings. For example: \\\"Upbeat\\\": \\\"true\\\" or \\\"Upbeat\\\": \\\"false\\\"."
-                "⚠️ You must escape all backslashes correctly in JSON (e.g., use \"A\\\\B\\\\A'\" instead of \"A\\B\\A'\"). Only return valid JSON.\n\n"
-                "All values inside the ```json``` block must be plain strings — not LilyPond syntax."
-                "✅ Then generate the LilyPond (.ly) code inside a ```lilypond``` block.\n\n"
-                "LilyPond Code Rules:\n"
-                "only include a composer if specified (otherwise DO NOT include a composer)"
-                "- Use exact pitches (no \\relative).\n"
-                "- Include \\version, \\header, \\layout, and \\midi blocks.\n"
-                "- Include \\score { ... } surrounding the music.\n"
-                "- Use valid LilyPond pitch names (e.g., bes not Bb).\n\n"
-                "- Include a tempo indication (such as a descriptive word or a numerical marking) using \\\\tempo near the beginning of the score. Choose a value that matches the character and pacing of the piece.\n"
-                "- Use dynamics (e.g., \\\\p, \\\\f, \\\\mf) and expressive markings (e.g., phrasing hairpins, text expressions with \\\\markup) that support the musical shape and intention.\n"
-                "- Add phrasing slurs and articulations (e.g., staccato, accents) to clarify musical expression and performance details."
-                "⚡️ Before completing your output, double-check:\n"
-                "- You included \\score { ... }\n"
-                "- You included \\layout { }\n"
-                "- You included \\midi { }\n\n"
-                "If lyrics are needed, define a variable like \\verseLyrics (do not use \\lyrics), then connect it using \\new Lyrics \\lyricsto \"voiceName\" \\verseLyrics. Always define the melody as a separate variable (e.g., melody = { ... }) before using it inside \\new Voice = \"voiceName\" { \\melody }, so lyrics can attach correctly."
-                "Base the harmonic structure on the following (use it as a close guide!!):\n\n"
-                "```lilypond\n" + example_lilypond + "\n```" + "\n\n"
-                "NEVER output explanations, comments, or markdown outside code blocks.\n"
-                "Only output pure JSON and LilyPond inside code blocks.\n\n"
-                "Following the original plan, add a melody over the harmony using chord tones as a base."
-                "Do not change the style, form, or key unless the plan specifies it. "
-                "Make the melody interesting and distinct compared to other voices. Think: movement, contrast, rests, quavers, ties, suspensions, syncopation, unity. "
-                "Ensure rhythmic interest. Avoid voice doubling. Use exact pitch and valid LilyPond syntax."
-                "Add syncopation, triplets, arpeggios, scalic runs, suspensions, and phrasing rests. "
-                "Introduce pedal tones where appropriate. Ensure all voices contribute to the texture and maintain proper voice-leading."
-                "Ensure:\n"
-                "- rhythmic contrast and interest throughout\n"
-                "- expressive melodic phrasing\n"
-                "- inner voices with variation (triplets, pedal tones, arpeggiation)\n"
-                "- motivic unity\n"
-                "- use of phrasing rests\n"
-                "Finalize the composition. Confirm it matches the original plan. Make the music coherent, expressive, and formally satisfying. "
-                "Double-check that the LilyPond code includes \\version, \\header, \\layout, \\midi, and \\score { ... } and compiles correctly."
-                "Fix the score: ensure all measures add up to the correct duration, synchronize all parts bar-by-bar, and align voices so they finish together."
-                "Always follow the formatting style used in the example score above. "
-                "Each LilyPond command (e.g., \\\\version, \\\\header, variable = { ... }, \\\\score { ... }) must start on its own line. "
-                "Never place multiple commands on the same line. "
-                "Match the indentation and spacing style exactly."
-                "Use the example score as a strict formatting template. Do not deviate from its structure or layout style."
-                "Do not include any comments (e.g., lines starting with %). Absolutely no `%` symbols should appear in the output LilyPond code. All output must be pure code only, with no comments."
+                "When the user requests a musical composition, you must first carefully plan..."
+                # ... TRUNCATE for brevity – use your full system prompt here ...
+                f"\n\n```lilypond\n{example_lilypond}\n```"
+            )
         },
         {"role": "user", "content": user_prompt}
     ]
-
-    client = openai.OpenAI()
-    total_prompt_tokens = 0
-    total_completion_tokens = 0
-    total_tokens = 0
 
     def parse_response(full_text):
         planning_json_match = re.search(r"```json\s*(\{.*?\})\s*```", full_text, re.DOTALL)
@@ -351,115 +294,115 @@ def smart_generate_lilypond():
 
         planning = json_lib.loads(planning_json_match.group(1)) if planning_json_match else None
         lilypond = lilypond_match.group(1).strip() if lilypond_match else None
-
         return planning, lilypond
 
-    try:
-        planning = None
-        lilypond_code = None
-        versions = []
-        all_messages = []
+    total_prompt_tokens = 0
+    total_completion_tokens = 0
+    total_tokens = 0
 
-        for i in range(1, NUM_ITERATIONS + 1):
-            if i == 1:
-                messages = conversation
-            else:
-                if i == 2:
-                    refine_prompt = (
-                        "Following the original plan, add a melody over the harmony using chord tones as a base."
-                        "Do not change the style, form, or key unless the plan specifies it. "
-                        "Make the melody interesting and distinct compared to other voices. Think: movement, contrast, rests, quavers, ties, suspensions, syncopation, unity. "
-                        "Ensure rhythmic interest. Avoid voice doubling. Use exact pitch and valid LilyPond syntax."
-                    )
-                elif i == 3:
-                    refine_prompt = (
-                        "Following the plan, enhance the inner and lower voices for greater musical and rhythmic interest. "
-                        "Add syncopation, triplets, arpeggios, scalic runs, suspensions, and phrasing rests. "
-                        "Introduce pedal tones where appropriate. Ensure all voices contribute to the texture and maintain proper voice-leading."
-                    )
-                elif i == 4:
-                    refine_prompt = (
-                        "Continue following the original plan. Refine the composition for musical expressiveness, rhythmic vitality, and structural clarity. "
-                        "Ensure:\n"
-                        "- rhythmic contrast and interest throughout\n"
-                        "- expressive melodic phrasing\n"
-                        "- inner voices with variation (triplets, pedal tones, arpeggiation)\n"
-                        "- motivic unity\n"
-                        "- use of phrasing rests\n"
-                        "Ensure the LilyPond code compiles, uses exact pitch, and follows formatting rules."
-                    )
-                elif i == 5:
-                    refine_prompt = (
-                        "Finalize the composition. Confirm it matches the original plan. Make the music coherent, expressive, and formally satisfying. "
-                        "Double-check that the LilyPond code includes \\version, \\header, \\layout, \\midi, and \\score { ... } and compiles correctly."
-                        "Fix the score: ensure all measures add up to the correct duration, synchronize all parts bar-by-bar, and align voices so they finish together."
-                    )
+    planning = None
+    lilypond_code = None
+    versions = []
+    all_messages = []
 
-                messages = [
-                    {
-                        "role": "system",
-                        "content": (
-                            "You are an expert LilyPond composer and editor. When refining a composition, follow the user's original plan exactly. "
-                            "Use German note names (e.g., fis, bes), exact pitch (no \\relative), and avoid parallel 5ths/8ves. "
-                            "Ensure rhythmic and melodic variety, structural balance, and musical interest in all voices. "
-                            "Wrap the music in a valid \\score block with \\layout and \\midi. "
-                            "Output valid LilyPond code only — no explanations or extra comments."
-                        )
-                    },
-                    {"role": "user", "content": f"The user's original musical prompt:\n\n{user_prompt}"},
-                    {"role": "user", "content": f"Here is the plan we made before composing:\n\n{json_lib.dumps(planning, indent=2)}"},
-                    {"role": "user", "content": f"Here is the current LilyPond score:\n\n{lilypond_code}"},
-                    {"role": "user", "content": refine_prompt}
-                ]
+    for i in range(1, NUM_ITERATIONS + 1):
+        if i == 1:
+            messages = conversation
+        else:
+            messages = [ ... ]  # you can add future iterations here
 
-            all_messages.append({
-                "iteration": i,
-                "messages": messages
-            })
+        all_messages.append({"iteration": i, "messages": messages})
 
-            response = log_openai_request(
-                model=model,
-                messages=messages,
-                temperature=0.7
-            )
-            content = response.choices[0].message.content.strip()
-            usage = response.usage
-            model_used = response.model
+        response = log_openai_request(model=model, messages=messages, temperature=0.7)
+        content = response.choices[0].message.content.strip()
+        usage = response.usage
+        model_used = response.model
 
-            total_prompt_tokens += usage.prompt_tokens
-            total_completion_tokens += usage.completion_tokens
-            total_tokens += usage.total_tokens
+        total_prompt_tokens += usage.prompt_tokens
+        total_completion_tokens += usage.completion_tokens
+        total_tokens += usage.total_tokens
 
-            if i == 1:
-                planning, lilypond_code = parse_response(content)
-                if not planning or not lilypond_code:
-                    return jsonify({"error": "Initial parsing failed", "full_response": content}), 500
-            else:
-                lilypond_code = content
+        if i == 1:
+            planning, lilypond_code = parse_response(content)
+            if not planning or not lilypond_code:
+                raise ValueError("Initial parsing failed")
+        else:
+            lilypond_code = content
 
-            versions.append({
-                "iteration": i,
-                "lilypond": lilypond_code,
-                "tokens": {
-                    "prompt": usage.prompt_tokens,
-                    "completion": usage.completion_tokens,
-                    "total": usage.total_tokens
-                }
-            })
-
-        return jsonify({
-            "final_lilypond": lilypond_code,
-            "planning": planning,
-            "iterations": versions,
-            "prompt_tokens": total_prompt_tokens,
-            "completion_tokens": total_completion_tokens,
-            "total_tokens": total_tokens,
-            "model": model_used,
-            "conversation_history": all_messages
+        versions.append({
+            "iteration": i,
+            "lilypond": lilypond_code,
+            "tokens": {
+                "prompt": usage.prompt_tokens,
+                "completion": usage.completion_tokens,
+                "total": usage.total_tokens
+            }
         })
 
+    return {
+        "final_lilypond": lilypond_code,
+        "planning": planning,
+        "iterations": versions,
+        "prompt_tokens": total_prompt_tokens,
+        "completion_tokens": total_completion_tokens,
+        "total_tokens": total_tokens,
+        "model": model_used,
+        "conversation_history": all_messages
+    }
+
+
+@app.route("/smart-generate-lilypond", methods=["POST"])
+def smart_generate_lilypond():
+    data = request.get_json()
+    try:
+        result = run_smart_generation(
+            user_prompt=data.get("prompt"),
+            model=data.get("model", "gpt-4.1"),
+            balance=data.get("balance", 0.0)
+        )
+        return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/start-smart-generate", methods=["POST"])
+def start_smart_generate():
+    data = request.get_json()
+    user_prompt = data.get("prompt")
+    model = data.get("model", "gpt-4.1")
+    balance = data.get("balance", 0.0)
+
+    if not user_prompt:
+        return jsonify({"error": "Missing prompt"}), 400
+
+    job_id = str(uuid.uuid4())
+    jobs[job_id] = {
+        "status": "pending",
+        "result": None,
+        "error": None
+    }
+
+    def job_runner():
+        try:
+            result = run_smart_generation(user_prompt, model, balance)
+            jobs[job_id]["status"] = "completed"
+            jobs[job_id]["result"] = result
+        except Exception as e:
+            jobs[job_id]["status"] = "failed"
+            jobs[job_id]["error"] = str(e)
+
+    threading.Thread(target=job_runner).start()
+    return jsonify({"job_id": job_id})
+
+
+@app.route("/smart-job-status/<job_id>")
+def smart_job_status(job_id):
+    job = jobs.get(job_id)
+    if not job:
+        return jsonify({"error": "Job not found"}), 404
+    return jsonify(job)
+
+
 
 
 @app.route("/refine-lilypond", methods=["POST"])
