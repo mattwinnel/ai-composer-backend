@@ -332,7 +332,6 @@ def run_smart_generation(user_prompt, model, balance):
                 "Match the indentation and spacing style exactly."
                 "Use the example score as a strict formatting template. Do not deviate from its structure or layout style."
                 "Do not include any comments (e.g., lines starting with %). Absolutely no `%` symbols should appear in the output LilyPond code. All output must be pure code only, with no comments."
-            )
         },
         {"role": "user", "content": user_prompt}
     ]
