@@ -747,6 +747,7 @@ def start_smart_full_generate():
                 "total_tokens": prompt_tokens + completion_tokens,
                 "model": model_used,
                 "final_cost": final_cost  # ✅ included here
+                "pricing_tier": pricing_tier  # 👈 included in result
             })
 
             save_jobs_to_file()
@@ -766,18 +767,14 @@ def start_smart_full_generate():
 
 
 def compute_final_cost(prompt_tokens, completion_tokens, model):
-    print(f"🧾 compute_final_cost() was called with model: {model}")
-    
-    # Only rely on actual model identifiers
-    if model in ["gpt-4.1-nano"]:  # Basic
-        print(f"🟢 Using BASIC pricing for model: {model}")
+    if model.startswith("gpt-4.1-nano"):  # ✅ safer than equality
         input_rate = 0.0001
         output_rate = 0.0004
-    else:  # Advanced (e.g., gpt-4.1 or anything else)
-        print(f"🔵 Using ADVANCED pricing for model: {model}")
+        tier = "basic"
+    else:
         input_rate = 0.002
         output_rate = 0.008
-
+        tier = "advanced"
 
     openai_tax = 1.20
     profit_multiplier = 10.0
@@ -788,7 +785,8 @@ def compute_final_cost(prompt_tokens, completion_tokens, model):
     base_cost = prompt_cost + completion_cost
 
     final = base_cost * openai_tax * profit_multiplier * vat
-    return round(final, 6)
+    return round(final, 6), tier
+
 
 
 
