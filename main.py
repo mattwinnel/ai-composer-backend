@@ -698,63 +698,64 @@ def start_smart_full_generate():
     }
 
     def job_runner():
-    try:
-        # Step 1: smart generate
-        result = run_smart_generation(user_prompt, model, balance)
-        lilypond_code = result["final_lilypond"]
+        try:
+            # Step 1: smart generate
+            result = run_smart_generation(user_prompt, model, balance)
+            lilypond_code = result["final_lilypond"]
 
-        # Step 2: compile LilyPond → PDF/MP3
-        ly_path = os.path.join(OUTPUT_DIR, f"{filename}.ly")
-        pdf_path = os.path.join(OUTPUT_DIR, f"{filename}.pdf")
-        midi_path = os.path.join(OUTPUT_DIR, f"{filename}.midi")
-        mp3_path = os.path.join(OUTPUT_DIR, f"{filename}.mp3")
-        wav_path = os.path.join(OUTPUT_DIR, f"{filename}.wav")
+            # Step 2: compile LilyPond → PDF/MP3
+            ly_path = os.path.join(OUTPUT_DIR, f"{filename}.ly")
+            pdf_path = os.path.join(OUTPUT_DIR, f"{filename}.pdf")
+            midi_path = os.path.join(OUTPUT_DIR, f"{filename}.midi")
+            mp3_path = os.path.join(OUTPUT_DIR, f"{filename}.mp3")
+            wav_path = os.path.join(OUTPUT_DIR, f"{filename}.wav")
 
-        with open(ly_path, "w") as f:
-            f.write(lilypond_code)
+            with open(ly_path, "w") as f:
+                f.write(lilypond_code)
 
-        subprocess.run(
-            ["lilypond", "-dignore-errors", "-o", os.path.join(OUTPUT_DIR, filename), ly_path],
-            check=True
-        )
+            subprocess.run(
+                ["lilypond", "-dignore-errors", "-o", os.path.join(OUTPUT_DIR, filename), ly_path],
+                check=True
+            )
 
-        subprocess.run([
-            "fluidsynth", "-ni", SOUNDFONT_PATH, midi_path,
-            "-F", wav_path, "-r", "44100"
-        ], check=True)
+            subprocess.run([
+                "fluidsynth", "-ni", SOUNDFONT_PATH, midi_path,
+                "-F", wav_path, "-r", "44100"
+            ], check=True)
 
-        subprocess.run(["ffmpeg", "-y", "-i", wav_path, mp3_path], check=True)
+            subprocess.run(["ffmpeg", "-y", "-i", wav_path, mp3_path], check=True)
 
-        if os.path.exists(wav_path):
-            os.remove(wav_path)
+            if os.path.exists(wav_path):
+                os.remove(wav_path)
 
-        # ✅ Calculate token cost and include it in the result
-        prompt_tokens = result.get("prompt_tokens", 0)
-        completion_tokens = result.get("completion_tokens", 0)
-        model_used = result.get("model", model)
-        final_cost = compute_final_cost(prompt_tokens, completion_tokens, model_used)
+            # ✅ Calculate token cost and include it in the result
+            prompt_tokens = result.get("prompt_tokens", 0)
+            completion_tokens = result.get("completion_tokens", 0)
+            model_used = result.get("model", model)
+            final_cost = compute_final_cost(prompt_tokens, completion_tokens, model_used)
 
-        # ✅ Save job result with cost
-        jobs[job_id].update({
-            "status": "completed",
-            "pdf_url": f"/download/{filename}.pdf",
-            "mp3_url": f"/download/{filename}.mp3",
-            "lilypond": lilypond_code,
-            "planning": result.get("planning"),
-            "conversation_history": result.get("conversation_history"),
-            "prompt_tokens": prompt_tokens,
-            "completion_tokens": completion_tokens,
-            "total_tokens": prompt_tokens + completion_tokens,
-            "model": model_used,
-            "final_cost": final_cost  # ✅ included here
-        })
+            # ✅ Save job result with cost
+            jobs[job_id].update({
+                "status": "completed",
+                "pdf_url": f"/download/{filename}.pdf",
+                "mp3_url": f"/download/{filename}.mp3",
+                "lilypond": lilypond_code,
+                "planning": result.get("planning"),
+                "conversation_history": result.get("conversation_history"),
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": completion_tokens,
+                "total_tokens": prompt_tokens + completion_tokens,
+                "model": model_used,
+                "final_cost": final_cost  # ✅ included here
+            })
 
-        save_jobs_to_file()
+            save_jobs_to_file()
 
-    except Exception as e:
-        jobs[job_id]["status"] = "failed"
-        jobs[job_id]["error"] = str(e)
-        save_jobs_to_file()
+        except Exception as e:
+            jobs[job_id]["status"] = "failed"
+            jobs[job_id]["error"] = str(e)
+            save_jobs_to_file()
+
 
 
 
