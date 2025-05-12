@@ -610,6 +610,68 @@ def refine_lilypond():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+        
+        
+        
+        
+@app.route("/smart-full-generate", methods=["POST"])
+def smart_full_generate():
+    data = request.get_json()
+    user_prompt = data.get("prompt")
+    model = data.get("model", "gpt-4.1")
+    balance = data.get("balance", 0.0)
+
+    if not user_prompt:
+        return jsonify({"error": "Missing prompt"}), 400
+    if balance < 0.99:
+        return jsonify({"error": "Insufficient funds"}), 403
+
+    try:
+        # 🔁 Step 1: AI smart generate
+        result = run_smart_generation(user_prompt, model, balance)
+        lilypond_code = result["final_lilypond"]
+
+        # 🔁 Step 2: Save and render
+        filename = "".join(c for c in (data.get("filename") or str(uuid.uuid4())) if c.isalnum() or c in ("_", "-")).rstrip()
+        ly_path = os.path.join(OUTPUT_DIR, f"{filename}.ly")
+        pdf_path = os.path.join(OUTPUT_DIR, f"{filename}.pdf")
+        midi_path = os.path.join(OUTPUT_DIR, f"{filename}.midi")
+        mp3_path = os.path.join(OUTPUT_DIR, f"{filename}.mp3")
+        wav_path = os.path.join(OUTPUT_DIR, f"{filename}.wav")
+
+        with open(ly_path, "w") as f:
+            f.write(lilypond_code)
+
+        subprocess.run(
+            ["lilypond", "-dignore-errors", "-o", os.path.join(OUTPUT_DIR, filename), ly_path],
+            check=True
+        )
+
+        subprocess.run([
+            "fluidsynth", "-ni", SOUNDFONT_PATH, midi_path,
+            "-F", wav_path, "-r", "44100"
+        ], check=True)
+
+        subprocess.run(["ffmpeg", "-y", "-i", wav_path, mp3_path], check=True)
+
+        if os.path.exists(wav_path):
+            os.remove(wav_path)
+
+        return jsonify({
+            "pdf_url": f"/download/{filename}.pdf",
+            "mp3_url": f"/download/{filename}.mp3",
+            "lilypond": lilypond_code,
+            "planning": result.get("planning"),
+            "conversation_history": result.get("conversation_history"),
+            "prompt_tokens": result.get("prompt_tokens"),
+            "completion_tokens": result.get("completion_tokens"),
+            "total_tokens": result.get("total_tokens"),
+            "model": result.get("model")
+        })
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 
 @app.route("/clear-jobs", methods=["POST"])
