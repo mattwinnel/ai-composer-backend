@@ -746,7 +746,7 @@ def start_smart_full_generate():
                 "completion_tokens": completion_tokens,
                 "total_tokens": prompt_tokens + completion_tokens,
                 "model": model_used,
-                "final_cost": final_cost  # ✅ included here
+                "final_cost": final_cost,  # ✅ included here
                 "pricing_tier": pricing_tier  # 👈 included in result
             })
 
