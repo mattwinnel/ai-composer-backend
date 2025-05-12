@@ -732,7 +732,7 @@ def start_smart_full_generate():
             prompt_tokens = result.get("prompt_tokens", 0)
             completion_tokens = result.get("completion_tokens", 0)
             model_used = result.get("model", model)
-            final_cost = compute_final_cost(prompt_tokens, completion_tokens, model_used)
+            final_cost, pricing_tier = compute_final_cost(prompt_tokens, completion_tokens, model_used)
 
             # ✅ Save job result with cost
             jobs[job_id].update({
