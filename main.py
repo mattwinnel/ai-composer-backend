@@ -766,6 +766,8 @@ def start_smart_full_generate():
 
 
 def compute_final_cost(prompt_tokens, completion_tokens, model):
+    print(f"🧾 compute_final_cost() was called with model: {model}")
+    
     # Only rely on actual model identifiers
     if model in ["gpt-4.1-nano"]:  # Basic
         print(f"🟢 Using BASIC pricing for model: {model}")
