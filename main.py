@@ -766,12 +766,14 @@ def start_smart_full_generate():
 
 
 def compute_final_cost(prompt_tokens, completion_tokens, model):
-    if model in ["Basic", "gpt-4.1-nano"]:  # ✅ match actual model used
+    # Only rely on actual model identifiers
+    if model in ["gpt-4.1-nano"]:  # Basic
         input_rate = 0.0001
         output_rate = 0.0004
-    else:
+    else:  # Advanced (e.g., gpt-4.1 or anything else)
         input_rate = 0.002
         output_rate = 0.008
+
 
     openai_tax = 1.20
     profit_multiplier = 10.0
