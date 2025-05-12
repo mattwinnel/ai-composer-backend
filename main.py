@@ -766,7 +766,7 @@ def start_smart_full_generate():
 
 
 def compute_final_cost(prompt_tokens, completion_tokens, model):
-    if model == "Basic":
+    if model in ["Basic", "gpt-4.1-nano"]:  # ✅ match actual model used
         input_rate = 0.0001
         output_rate = 0.0004
     else:
