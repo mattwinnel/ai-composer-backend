@@ -383,51 +383,6 @@ def run_smart_generation(user_prompt, model, balance):
 
 
 
-
-@app.route("/start-smart-generate", methods=["POST"])
-def start_smart_generate():
-    data = request.get_json()
-    user_prompt = data.get("prompt")
-    model = data.get("model", "gpt-4.1")
-    balance = data.get("balance", 0.0)
-
-    if not user_prompt:
-        return jsonify({"error": "Missing prompt"}), 400
-
-    job_id = str(uuid.uuid4())
-    jobs[job_id] = {
-        "status": "pending",
-        "result": None,
-        "error": None
-    }
-
-    def job_runner():
-        try:
-            result = run_smart_generation(user_prompt, model, balance)
-            jobs[job_id]["status"] = "completed"
-            jobs[job_id]["result"] = result
-            
-            save_jobs_to_file()
-            
-            
-        except Exception as e:
-            jobs[job_id]["status"] = "failed"
-            jobs[job_id]["error"] = str(e)
-            
-            save_jobs_to_file()
-
-    threading.Thread(target=job_runner).start()
-    return jsonify({"job_id": job_id})
-
-
-@app.route("/smart-job-status/<job_id>")
-def smart_job_status(job_id):
-    job = jobs.get(job_id)
-    if not job:
-        return jsonify({"error": "Job not found"}), 404
-    return jsonify(job)
-
-
         
         
         
