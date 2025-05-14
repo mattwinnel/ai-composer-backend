@@ -479,8 +479,8 @@ def start_smart_full_generate():
             # ✅ Save job result with cost
             jobs[job_id].update({
                 "status": "completed",
-                "pdf_url": f"/download/{filename}.pdf",
-                "mp3_url": f"/download/{filename}.mp3",
+                "pdf_url": f"/download/{final_base}.pdf",
+                "mp3_url": f"/download/{final_base}.mp3",
                 "lilypond": lilypond_code,
                 "planning": result.get("planning"),
                 "conversation_history": result.get("conversation_history"),
