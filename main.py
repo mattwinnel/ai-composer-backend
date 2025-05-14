@@ -66,6 +66,13 @@ def add_footer_to_lilypond(code):
 }
 """
     return code.strip() + "\n\n" + footer.strip()
+    
+    
+import re
+def extract_title_from_lilypond(code):
+    match = re.search(r'title\s*=\s*"([^"]+)"', code)
+    return match.group(1) if match else "Untitled"
+
 
 
 def save_jobs_to_file():
@@ -441,6 +448,24 @@ def start_smart_full_generate():
 
             if os.path.exists(wav_path):
                 os.remove(wav_path)
+                
+                
+            # ✅ Extract title and rename files accordingly
+            title = extract_title_from_lilypond(lilypond_code)
+            timestamp = int(time.time())
+            safe_title = "".join(c for c in title.replace(" ", "_") if c.isalnum() or c == "_")
+            final_base = f"{safe_title}_{timestamp}"
+
+            # Final paths
+            final_pdf_path = os.path.join(OUTPUT_DIR, f"{final_base}.pdf")
+            final_mp3_path = os.path.join(OUTPUT_DIR, f"{final_base}.mp3")
+            final_ly_path = os.path.join(OUTPUT_DIR, f"{final_base}.ly")
+
+            # Rename files
+            os.rename(pdf_path, final_pdf_path)
+            os.rename(mp3_path, final_mp3_path)
+            os.rename(ly_path, final_ly_path)
+
 
             # ✅ Calculate token cost and include it in the result
             prompt_tokens = result.get("prompt_tokens", 0)
@@ -461,7 +486,8 @@ def start_smart_full_generate():
                 "total_tokens": prompt_tokens + completion_tokens,
                 "model": model_used,
                 "final_cost": final_cost,  # ✅ included here
-                "pricing_tier": pricing_tier  # 👈 included in result
+                "pricing_tier": pricing_tier,  # 👈 included in result
+                "title": title  # ✅ Optional: return title to frontend
             })
 
             save_jobs_to_file()
@@ -500,6 +526,7 @@ def compute_final_cost(prompt_tokens, completion_tokens, model):
 
     final = base_cost * openai_tax * profit_multiplier * vat
     return round(final, 6), tier
+
 
 
 
