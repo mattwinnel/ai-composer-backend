@@ -176,7 +176,6 @@ def run_smart_generation(user_prompt, model, balance):
                 "LilyPond Code Rules:\n"
                 "only include a composer if specified (otherwise DO NOT include a composer)\n"
                 "- Use exact pitches (no \\relative).\n"
-                "- Insert \break after every 3 or 4 measures to prevent notes from running off the page.\n"
                 "- Include \\version, \\header, \\layout, and \\midi blocks.\n"
                 "- Include \\score { ... } surrounding the music.\n"
                 "- Use valid LilyPond pitch names (e.g., bes not Bb).\n\n"
@@ -189,7 +188,6 @@ def run_smart_generation(user_prompt, model, balance):
                 "- You included \\midi { }\n\n"
                 "- All measures must add up correctly to match the time signature.\n"
                 "- All staves (voices) must have the same number of measures and stay synchronized.\n"
-                "- Insert \break every 3–4 bars to avoid layout overflow.\n"
                 "If lyrics are needed, define a variable like \\verseLyrics (do not use \\lyrics), then connect it using \\new Lyrics \\lyricsto \"voiceName\" \\verseLyrics. Always define the melody as a separate variable (e.g., melody = { ... }) before using it inside \\new Voice = \"voiceName\" { \\melody }, so lyrics can attach correctly."
                 "Base the harmonic structure on the following (use it as a close guide!!):\n\n"
                 "```lilypond\n" + example_lilypond + "\n```" + "\n\n"
@@ -214,7 +212,8 @@ def run_smart_generation(user_prompt, model, balance):
                 "Each LilyPond command (e.g., \\\\version, \\\\header, variable = { ... }, \\\\score { ... }) must start on its own line. "
                 "Never place multiple commands on the same line. "
                 "Match the indentation and spacing style exactly."
-                "Use the example score as a strict formatting template. Do not deviate from its structure or layout style."
+                "Use the example score as a strict formatting template. Do not deviate from its structure or layout style. However, choose your instrumentation wisely based on the user prompt."
+                "You must write genius music, in the style provided by the user's prompt, i.e., like Bach, Mozart, Haydn, Beethoven, Schubert, Chopin, Liszt, Brahms, Tchaikovsky, Debussy, Ravel, Stravinsky, Prokofiev, Shostakovich, or Ligeti."
                 "Do not include any comments (e.g., lines starting with %). Absolutely no `%` symbols should appear in the output LilyPond code. All output must be pure code only, with no comments."
         },
         {"role": "user", "content": user_prompt}
