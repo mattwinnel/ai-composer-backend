@@ -207,7 +207,7 @@ def run_smart_generation(user_prompt, model, balance):
                 "- use of phrasing rests\n"
                 "Finalize the composition. Confirm it matches the original plan. Make the music coherent, expressive, and formally satisfying. "
                 "Double-check that the LilyPond code includes \\version, \\header, \\layout, \\midi, and \\score { ... } and compiles correctly."
-                "Fix the score: ensure all measures add up to the correct duration, synchronize all parts bar-by-bar, and align voices so they finish together."
+                "Fix the score: ensure that all measures match the correct duration according to the time signature, and that all voices remain bar-aligned and finish simultaneously. However, maintain independence between parts: allow for contrary and contrapuntal motion, independent rhythms, melodic or harmonic roles to shift between voices, and appropriate use of rests."
                 "Always follow the formatting style used in the example score above. "
                 "Each LilyPond command (e.g., \\\\version, \\\\header, variable = { ... }, \\\\score { ... }) must start on its own line. "
                 "Never place multiple commands on the same line. "
