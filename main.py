@@ -207,9 +207,19 @@ def run_smart_generation(user_prompt, model, balance):
 
     def parse_response(full_text):
         import re
-        lilypond_match = re.search(r"```lilypond\s*(.*?)\s*```", full_text, re.DOTALL)
-        lilypond = lilypond_match.group(1).strip() if lilypond_match else None
-        return lilypond
+        # ✅ Try matching proper Markdown code block
+        match = re.search(r"```lilypond\s*(.*?)\s*```", full_text, re.DOTALL)
+        if match:
+            return match.group(1).strip()
+
+        # ✅ Fallback: check if it's raw LilyPond code
+        if "\\version" in full_text and "\\score" in full_text:
+            print("⚠️ Detected raw LilyPond code without code block")
+            return full_text.strip()
+
+        # ❌ Nothing valid found
+        return None
+
 
 
     total_prompt_tokens = 0
