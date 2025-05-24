@@ -206,18 +206,16 @@ def run_smart_generation(user_prompt, model, balance):
     ]
 
     def parse_response(full_text):
-        planning_json_match = re.search(r"```json\s*(\{.*?\})\s*```", full_text, re.DOTALL)
+        import re
         lilypond_match = re.search(r"```lilypond\s*(.*?)\s*```", full_text, re.DOTALL)
-
-        planning = json_lib.loads(planning_json_match.group(1)) if planning_json_match else None
         lilypond = lilypond_match.group(1).strip() if lilypond_match else None
-        return planning, lilypond
+        return lilypond
+
 
     total_prompt_tokens = 0
     total_completion_tokens = 0
     total_tokens = 0
 
-    planning = None
     lilypond_code = None
     versions = []
     all_messages = []
@@ -269,7 +267,6 @@ def run_smart_generation(user_prompt, model, balance):
                         )
                     },
                     {"role": "user", "content": f"The user's original musical prompt:\n\n{user_prompt}"},
-                    {"role": "user", "content": f"Here is the plan we made before composing:\n\n{json_lib.dumps(planning, indent=2)}"},
                     {"role": "user", "content": f"Here is the current LilyPond score:\n\n{lilypond_code}"},
                     {"role": "user", "content": refine_prompt}
                 ]
@@ -286,9 +283,10 @@ def run_smart_generation(user_prompt, model, balance):
         total_tokens += usage.total_tokens
 
         if i == 1:
-            planning, lilypond_code = parse_response(content)
-            if not planning or not lilypond_code:
-                raise ValueError("Initial parsing failed")
+            lilypond_code = parse_response(content)
+            if not lilypond_code:
+                raise ValueError("Failed to extract LilyPond code from model response")
+
         else:
             lilypond_code = content
 
@@ -304,7 +302,6 @@ def run_smart_generation(user_prompt, model, balance):
 
     return {
         "final_lilypond": lilypond_code,
-        "planning": planning,
         "iterations": versions,
         "prompt_tokens": total_prompt_tokens,
         "completion_tokens": total_completion_tokens,
@@ -406,7 +403,6 @@ def start_smart_full_generate():
                 "pdf_url": f"/download/{final_base}.pdf",
                 "mp3_url": f"/download/{final_base}.mp3",
                 "lilypond": lilypond_code,
-                "planning": result.get("planning"),
                 "conversation_history": result.get("conversation_history"),
                 "prompt_tokens": prompt_tokens,
                 "completion_tokens": completion_tokens,
