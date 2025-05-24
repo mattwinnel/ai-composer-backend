@@ -352,6 +352,11 @@ def start_smart_full_generate():
         try:
             # Step 1: smart generate
             result = run_smart_generation(user_prompt, model, balance)
+            
+            # ✅ Calculate token cost and include it in the result
+            prompt_tokens = result.get("prompt_tokens", 0)
+            completion_tokens = result.get("completion_tokens", 0)
+            model_used = result.get("model", model)
             lilypond_code = result["final_lilypond"]
             lilypond_code = add_footer_to_lilypond(lilypond_code)  # ✅ Inject footer here
 
@@ -428,10 +433,7 @@ def start_smart_full_generate():
             os.rename(ly_path, final_ly_path)
 
 
-            # ✅ Calculate token cost and include it in the result
-            prompt_tokens = result.get("prompt_tokens", 0)
-            completion_tokens = result.get("completion_tokens", 0)
-            model_used = result.get("model", model)
+            
 
             # ✅ Check if fallback was used
             retry_used = "safe_result" in locals()
