@@ -366,10 +366,37 @@ def start_smart_full_generate():
             with open(ly_path, "w") as f:
                 f.write(lilypond_code)
 
-            subprocess.run(
-                ["lilypond", "-dignore-errors", "-o", os.path.join(OUTPUT_DIR, filename), ly_path],
-                check=True
-            )
+            try:
+                subprocess.run(
+                    ["lilypond", "-dignore-errors", "-o", os.path.join(OUTPUT_DIR, filename), ly_path],
+                    check=True
+                )
+            except subprocess.CalledProcessError:
+                print(f"❌ LilyPond compilation failed for {filename}.ly. Retrying with safe prompt...")
+
+                # Fallback safe retry
+                safe_result = run_smart_generation("Write a melody in C major with title called Fallback", model, balance)
+                lilypond_code = safe_result["final_lilypond"]
+                lilypond_code = add_footer_to_lilypond(lilypond_code)
+
+                # Overwrite .ly file
+                with open(ly_path, "w") as f:
+                    f.write(lilypond_code)
+
+                # Retry compilation
+                subprocess.run(
+                    ["lilypond", "-dignore-errors", "-o", os.path.join(OUTPUT_DIR, filename), ly_path],
+                    check=True
+                )
+
+                # Update token accounting
+                prompt_tokens += safe_result["prompt_tokens"]
+                completion_tokens += safe_result["completion_tokens"]
+                model_used = safe_result.get("model", model)
+
+                # Optionally log retry info
+                print("✅ Safe retry succeeded")
+
 
             subprocess.run([
                 "fluidsynth", "-ni", SOUNDFONT_PATH, midi_path,
@@ -405,7 +432,20 @@ def start_smart_full_generate():
             prompt_tokens = result.get("prompt_tokens", 0)
             completion_tokens = result.get("completion_tokens", 0)
             model_used = result.get("model", model)
+
+            # ✅ Check if fallback was used
+            retry_used = "safe_result" in locals()
+            if retry_used:
+                prompt_tokens += safe_result.get("prompt_tokens", 0)
+                completion_tokens += safe_result.get("completion_tokens", 0)
+                model_used = safe_result.get("model", model)
+                conversation_history = safe_result.get("conversation_history")
+            else:
+                conversation_history = result.get("conversation_history")
+
+            # ✅ Compute final cost
             final_cost, pricing_tier = compute_final_cost(prompt_tokens, completion_tokens, model_used)
+
 
             # ✅ Save job result with cost
             jobs[job_id].update({
@@ -413,15 +453,17 @@ def start_smart_full_generate():
                 "pdf_url": f"/download/{final_base}.pdf",
                 "mp3_url": f"/download/{final_base}.mp3",
                 "lilypond": lilypond_code,
-                "conversation_history": result.get("conversation_history"),
+                "conversation_history": conversation_history,  # ✅ from earlier
                 "prompt_tokens": prompt_tokens,
                 "completion_tokens": completion_tokens,
                 "total_tokens": prompt_tokens + completion_tokens,
                 "model": model_used,
-                "final_cost": final_cost,  # ✅ included here
-                "pricing_tier": pricing_tier,  # 👈 included in result
-                "title": title  # ✅ Optional: return title to frontend
+                "final_cost": final_cost,
+                "pricing_tier": pricing_tier,
+                "title": title,
+                "safe_retry_used": retry_used  # ✅ new field
             })
+
 
             save_jobs_to_file()
 
