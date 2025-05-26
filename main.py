@@ -158,6 +158,7 @@ def run_smart_generation(user_prompt, model, balance):
             "role": "system",
             "content":
                 "You are an expert composer.\n\n"
+                "Write similar as if an etude by composers such as: Bach, Czerny, Chopin, Liszt, Debussy, Scriabin, Rachmaninoff, Shostakovich, Bartók, Paganini, Ernst, Kreutzer, Rode, Mazas, Accolay.\n"
                 "When the user requests a musical composition, you must first carefully plan (don't be so generic, not always C major and 6/8 time):\n\n"
                 "- Style\n"
                 "- Form\n"
