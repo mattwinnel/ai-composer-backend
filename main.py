@@ -68,7 +68,42 @@ def save_balances(balances):
         json_lib.dump(balances, f)
 
 
-balances = load_balances()
+import threading
+balance_lock = threading.Lock()
+
+def update_balance(user_id, delta):
+    """
+    Safely updates the user's balance by `delta` (can be positive or negative).
+    Automatically loads and saves the balances with thread locking.
+    Returns the new balance.
+    """
+    with balance_lock:
+        balances = load_balances()
+        new_balance = round(balances.get(user_id, 0.0) + delta, 2)
+        balances[user_id] = new_balance
+        save_balances(balances)
+
+        # ✅ log it
+        reason = "credit" if delta > 0 else "job deduction"
+        log_balance_change(user_id, delta, reason)
+
+        return new_balance
+
+
+
+BALANCE_LOG_FILE = os.path.join(BASE_DIR, "balance_log.jsonl")
+
+def log_balance_change(user_id, delta, reason):
+    with open(BALANCE_LOG_FILE, "a") as f:
+        json_lib.dump({
+            "timestamp": int(time.time()),
+            "user_id": user_id,
+            "change": delta,
+            "reason": reason
+        }, f)
+        f.write("\n")
+
+
 
 def add_footer_to_lilypond(code):
     footer = r"""
@@ -125,13 +160,22 @@ def get_user_balance():
     user_id = request.args.get("user_id")
     if not user_id:
         return jsonify({"error": "Missing user_id"}), 400
-    balances = load_balances()
-    balance = balances.get(user_id, 0.0)
+    balance = get_user_balance_value(user_id)
     return jsonify({"user_id": user_id, "balance": balance})
+
+    
+    
+def get_user_balance_value(user_id):
+    """
+    Thread-safe read of the user's current balance from disk.
+    """
+    with balance_lock:
+        balances = load_balances()
+        return round(balances.get(user_id, 0.0), 2)
+
 
 @app.route("/add-credits", methods=["POST"])
 def add_credits():
-    global balances  # ✅ make sure you're modifying the in-memory shared dict
 
     data = request.get_json()
     user_id = data.get("user_id")
@@ -140,10 +184,10 @@ def add_credits():
     if not user_id or amount <= 0:
         return jsonify({"error": "Missing user_id or invalid amount"}), 400
 
-    balances[user_id] = round(balances.get(user_id, 0.0) + amount, 2)
-    save_balances(balances)
+    new_balance = update_balance(user_id, amount)
+    return jsonify({"user_id": user_id, "balance": new_balance})
 
-    return jsonify({"user_id": user_id, "balance": balances[user_id]})
+
 
 
 
@@ -373,7 +417,8 @@ def start_smart_full_generate():
     model = data.get("model", "gpt-4.1")
     # balance = data.get("balance", 0.0)
     user_id = data.get("user_id")  # <-- NEW
-    balance = balances.get(user_id, 0.0) if user_id else 0.0  # <-- REPLACE balance = ...
+    balance = get_user_balance_value(user_id) if user_id else 0.0
+
 
     requested_filename = data.get("filename") or str(uuid.uuid4())
 
@@ -562,9 +607,8 @@ def start_smart_full_generate():
             })
 
             # ✅ Deduct cost from user balance
-            if user_id in balances:
-                balances[user_id] = round(balances[user_id] - final_cost, 2)
-                save_balances(balances)
+            if user_id:
+                update_balance(user_id, -final_cost)
 
             save_jobs_to_file()
 
