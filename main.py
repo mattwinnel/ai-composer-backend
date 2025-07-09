@@ -131,15 +131,20 @@ def get_user_balance():
 
 @app.route("/add-credits", methods=["POST"])
 def add_credits():
+    global balances  # ✅ make sure you're modifying the in-memory shared dict
+
     data = request.get_json()
     user_id = data.get("user_id")
     amount = float(data.get("amount", 0))
+
     if not user_id or amount <= 0:
         return jsonify({"error": "Missing user_id or invalid amount"}), 400
-    balances = load_balances()
+
     balances[user_id] = round(balances.get(user_id, 0.0) + amount, 2)
     save_balances(balances)
+
     return jsonify({"user_id": user_id, "balance": balances[user_id]})
+
 
 
 @app.route("/job-status/<job_id>")
